@@ -1,0 +1,48 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Here is the custom generator responsible of the api generation
+generator customGenerator {
+  provider           = "node ../../dist/libs/generator/src/bin.js"
+  output             = ".."
+  tsConfigFilePath   = "tsconfig.app.json"
+  generatedDirectory = "src/app/generated"
+}
+
+//--------------------------------------------
+// This part describe the project models
+//--------------------------------------------
+model User {
+  id      Int      @id @default(autoincrement())
+  email   String   @unique
+  name    String?
+  role   Role   @relation(fields: [roleId], references: [id])
+  roleId Int
+}
+
+model Role {
+  id     Int    @id @default(autoincrement())
+  name    String
+  users User[]
+  rights Right[]
+}
+
+model Right {
+  id     Int    @id @default(autoincrement())
+  name    String @unique
+  roles Role[]
+}
+
+//--------------------------------------------
+// Uncomment the next bloc to add the Tag model
+//--------------------------------------------
+model Tag {
+  id     Int    @id @default(autoincrement())
+  name    String @unique
+  description String?
+}
