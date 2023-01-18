@@ -4,7 +4,7 @@ import * as path from 'path';
 import { generatorHandler, GeneratorOptions } from '@prisma/generator-helper';
 import { Project } from 'ts-morph';
 
-import { generateControllerSourceFile } from './generators/controller.generator';
+import { generateControllerSourceFile } from './generators/controller/controller.generator';
 import { generateCreateDtoSourceFile } from './generators/dto/dto.generator';
 import { kebab } from 'case';
 

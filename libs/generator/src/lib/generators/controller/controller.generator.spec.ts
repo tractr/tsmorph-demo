@@ -1,11 +1,15 @@
 import { DMMF } from '@prisma/generator-helper';
 import {
   MethodDeclarationStructure,
+  Project,
   PropertyDeclarationStructure,
   StructureKind,
 } from 'ts-morph';
 
-import { generateControllerClass } from './controller.generator';
+import {
+  generateControllerClass,
+  generateControllerSourceFile,
+} from './controller.generator';
 import * as helpers from './helpers.generator';
 
 const spyGenerateStateProperty = jest.spyOn(helpers, 'generateStateProperty');
@@ -129,6 +133,33 @@ describe('Controller generator', () => {
       expect(spyGenerateCheckUniquenessConstraintMethod).toHaveBeenCalledWith(
         model
       );
+    });
+  });
+
+  describe('generateSourceFile', () => {
+    it('should add a sourceFile to the project', () => {
+      const project = new Project();
+
+      const model = {
+        name: 'Test',
+        dbName: 'Test',
+        primaryKey: null,
+        uniqueFields: [],
+        uniqueIndexes: [],
+        fields: [],
+      };
+
+      generateControllerSourceFile(project, model, 'test-path');
+
+      const createdSourceFile = project.getSourceFile(
+        'test-path/test.controller.ts'
+      );
+
+      const createdClass = createdSourceFile?.getClass('TestController');
+
+      expect(createdSourceFile).toBeDefined();
+      expect(createdClass).toBeDefined();
+      expect(createdClass.getName()).toEqual('TestController');
     });
   });
 });

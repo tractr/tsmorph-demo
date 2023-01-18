@@ -38,3 +38,4 @@ Other tools used in this demo:
 - [Nx](https://nx.dev/).
 - [Nestjs](https://nestjs.com/).
 - [Nestjs swagger plugin](https://docs.nestjs.com/openapi/introduction).
+- [Marp](https://marp.app/) to write slides decks with markdown.

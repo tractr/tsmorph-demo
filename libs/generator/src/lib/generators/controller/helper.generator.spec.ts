@@ -64,7 +64,7 @@ describe('controller helpers generator', () => {
   });
 
   describe('generateCheckUniquenessConstraintMethod', () => {
-    it('should return a valid checkUniquenessConstraints method structure', () => {
+    it('should return a valid checkUniquenessConstraint method structure', () => {
       const model = {
         name: 'Test',
         dbName: 'Test',
@@ -76,7 +76,7 @@ describe('controller helpers generator', () => {
 
       const expectedMethodStructure = {
         kind: StructureKind.Method,
-        name: 'checkUniquenessConstraints',
+        name: 'checkUniquenessConstraint',
         scope: 'private',
         statements:
           '\n' +
@@ -158,7 +158,7 @@ describe('controller helpers generator', () => {
     });
   });
 
-  describe('generateUniqueFieldsPropertyStateProperty', () => {
+  describe('generateUniqueFieldsPropertyProperty', () => {
     it('should return valid uniqueFields property structure', () => {
       const model = {
         name: 'Test',
@@ -174,7 +174,6 @@ describe('controller helpers generator', () => {
         name: 'uniqueFields',
         scope: Scope.Private,
         initializer: `[] as const`,
-        isReadonly: true,
       };
 
       const result = generateUniqueFieldsProperty(model);
@@ -206,7 +205,6 @@ describe('controller helpers generator', () => {
         name: 'uniqueFields',
         scope: Scope.Private,
         initializer: `['unique'] as const`,
-        isReadonly: true,
       };
 
       const result = generateUniqueFieldsProperty(model);
