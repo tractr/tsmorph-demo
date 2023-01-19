@@ -138,6 +138,5 @@ export function generateUniqueFieldsProperty(
     name: 'uniqueFields',
     scope: Scope.Private,
     initializer: `[${uniqueFields.join(',')}] as const`,
-    isReadonly: true,
   };
 }

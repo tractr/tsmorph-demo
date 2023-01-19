@@ -41,8 +41,8 @@ model Right {
 //--------------------------------------------
 // Uncomment the next bloc to add the Tag model
 //--------------------------------------------
-model Tag {
-  id     Int    @id @default(autoincrement())
-  name    String @unique
-  description String?
-}
+// model Tag {
+//   id     Int    @id @default(autoincrement())
+//   name    String @unique
+//   description String?
+// }
