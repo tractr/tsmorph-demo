@@ -1,122 +1,171 @@
 ---
 ---
 
-# Generate typescript with ts-morph
+# Generate typescript code with ts-morph
 
 ## SLIDE 1: Generate typescript with ts-morph
 
 - Dev @tractr
-- Strongly rely on code generation
+- we work with startups, so a lot of early stage projects
+- involves many data models changes
 
 ---
 
 ## SLIDE 2: Tractr's use case
 
 - Generate repetitive code like REST/graphql api
-- From now, rely on string manipulation
-- POC to start using ts-morph
-- explain PRISMA: generated ORM
-- Run the repo demo
+- Input: an object that describe the data models
+- Output: repetitive code
+- For this exemple we use prisma as a data model object
+- Prisma: ORM that relies on generation from a schema
+
+Workflow: when there is a new feature, we update the model, and run the generation to update the REST api
 
 ---
 
-## SLIDE 3: What is ts-morph ?
+## SLIDE 3: Explain he POC
 
-- library to manipulate ts AST
+- From now, rely on string templates
+- Looking for a safer/better way
+
+Explain analogy with HTML:
+
+- Using string is like using php template to manipulate html string
+- we would like to manipulate html via the dom for safety/types
+- and if there could be a jquery equivalent, it'd be nice
+
+THATS WHY WE STARTED A POC TO USE TSMORPH
+
+---
+
+## SLIDE 4: What is ts-morph ?
+
+Two important points:
+
 - wraps ts compiler
+- to manipulate typescript AST
+
+What the AST: Tree data structure representing our program
+See how it looks
+
+## SLIDE 5: What is the AST used for ?
+
+- Transform code into something else (compile, lint, format)
+- turn code to ast is called 'parsing'
+- the dom analogy returns: browsers parses html to dom
+- (ts string <=> html string)
+- (tsc <=> raw dom)
+- (tsmorhp <=> jquery)
+
+THAT's exactly what we want to do, and what ts-morph is made for
 
 ---
 
-## SLIDE 4: What is typescript AST ?
+## slide 6: write the code generator with ts-morph
 
-- Abstract syntax tree
-- Data structure representing the program code
-- ts-morph uses typescript parser to get the AST and add helpers
+THE GENERATOR SIGNATURE:
 
----
-
-## SLIDE 5: AST in Typescript compiler
-
-When tsc is invoked:
-
-- Read ts-config for compiler options and input files
-- Create compilation context by loading input files and their imports
-- Parsing 1: Scanning: code is scanned and turned into a stream of SyntaxKind tokens
-- Parsing 2: turn the tokens into AST
-- Emitting: transform the AST into javascript code
+- input: data models
+- output: generated code (a controller for a rest api)
 
 ---
 
-## SLIDE 6: Load the project with ts-morph
+## slide 7: the `generate` function
 
-- Project AST loaded in memory when instantiating `Project`
-- must specify path to the ts-config
-- can load or not load the files included by the tsconfig
-- While manipulating the AST, everything happen in memory
-- Nothing is written to the disk until you call the related methods
+it's the root of the generation.
 
----
+STEPS:
 
-## SLIDE 7: the `generate` function
-
-- it's the root of the generation
-- it loads the project
+- load the project
 - clean the `generated` directory
-- Generate the new files
-- Remove unused identifiers
-- Save the project to the disk
+- generate the new files
+- remove unused identifiers
+- save the project to the disk
+
+REMARKS:
+
+- project ast loaded in memory when instantiating `project`.
+- must specify path to the ts-config as it's the entry point.
+- while manipulating the ast, everything happen in memory.
+- nothing is written to the disk until you call the related methods.
+- dispatch work to the sourcefile generators.
 
 ---
 
-## SLIDE 8: Generate code depending on the data models
+## SLIDE 8: the `generateControllerSourceFile` function
 
-- dmmf object represent the data models
-- Note: les fonctions de générations sont des fonctions pures qui prennent un model en entrée et renvoie des structures (AST)
-- Présenter l'ajout de fichier
-- présenter l'ajout de classes et le structures
+SIGNATURE:
 
-Manipulate code by using its AST form brings the next benefits:
+- project: edit the project by ref to add a file
+- models: file path and content depends on the model
+- path to add the file
 
-- Format independent
-- Safer, less error prone
-- Makes complex manipulations possible
+THIS FUNCTION:
 
-but can be overkill for simple things.
+- Create a sourcefile in the project
+- Fill it with a class and imports
 
-Example where of the format independent argument
+REMARKS:
 
-```typescript
-export class Dog extends Animal {}
-```
+- Function is not pure as it edits the project ref
 
-### Use prisma schema as an input to generate code
+Now let's see how the class is generated
 
-Prisma is a database ORM that uses a schema representing the data model to generate
-a type safe database client, migrations and more.
+---
 
-It uses 'generators' that are functions that take the schema as an input, and generate some code.
+## SLIDE 9: the `generateControllerClass` function
 
-ADD A LINK TO THE DEMO PRISMA SCHEMA
+SIGNATURE:
 
-### Test the code generator
+- models: file path and content depends on the model
 
-Possibilités pour les tests:
+THIS FUNCTION:
 
-- soit unit test classiques: les generators sont des fonctions pures, donc on mock l'entrée on check la sortie
-- autre possibilité à tester: On écrit le fichier `ts` attendu en sortie, et dans le test, on le parse et compare sont AST avec celui qui sort de la fonction
+- Create a `ClassDeclarationStructure` describing the class and return it
+- delegate the generation of smaller structures to other functions
 
-## Resources
+REMARKS:
 
-articles:
+- Function pure as it edits the project ref
+- All smaller functions work in a similar way
 
-- typescript compiler resources: https://www.huy.rocks/everyday/04-01-2022-typescript-how-the-compiler-compiles
-- code refactoring with ts-morph: https://blog.kaleidos.net/Refactoring-Typescript-code-with-ts-morph/
+---
 
-docs:
+## SLIDE 10: Test the generator: pure functions
 
-- Demo repository: https://github.com/tractr/tsmorph-demo
-- ts-morph
-- prisma generators
-- typescript compiler api: https://github.com/microsoft/TypeScript/wiki/Using-the-Compiler-API
+Tests for pure function are simple:
 
-QUESTION @Edouard: est ce que je roule la démo en live ? Avant ou après avoir éplucher le code ?
+- Create a mocked model
+- Call the generator function
+- Assert that the result is correct
+
+---
+
+## SLIDE 11: Test the generator: impure functions
+
+Tests for pure function are simple:
+
+- Create an empty project
+- Create a mocked model
+- Call the generator function
+- Assert that the project ref as a new file with the generated class
+
+---
+
+## SLIDE 12: Another use case: code refactoring
+
+ts-morph can be used for refactoring:
+
+- complex request can be made to navigate / manipulate the AST
+- Search for all files with several classes
+- split it in several files
+
+---
+
+## SLIDE 13: Conclusion
+
+---
+
+## SLIDE 14: Resources
+
+---

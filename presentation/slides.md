@@ -16,15 +16,13 @@ style: |
   }
 ---
 
-# Generate Code with ts-morph
-
-Ajouter un petit logo Tractr / ts-morph et nos petits noms
+# **Generate typescript code with ts-morph**
 
 ---
 
 # Our use case:
 
-Generate repetitive code that depends on data models.
+Generate repetitive code that depends on the application data models.
 
 <div class="columns">
 <div>
@@ -53,23 +51,75 @@ model Role {
 
 ## Output: typescript code
 
-```typescript
-export class UserDto {
-  id!: number;
-  email!: string;
-  name!: string | null;
-  roleId!: number;
-}
+```sh
+api/src/generated
+├── role
+│   ├── role.controller.ts
+│   └── role.dto.ts
+└── user
+    ├── user.controller.ts
+    └── user.dto.ts
 ```
 
+</div>
+</div>
+
+---
+
+**Currently, we use string templates to generate code**
+
+<div class="columns">
+<div>
+
+generator function
+
 ```typescript
-export class RoleDto {
-  id!: number;
-  name!: string;
+function generateController(model) {
+  return `export class ${model.name}Controller {}`;
 }
 ```
 
 </div>
+<div>
+
+result
+
+```typescript
+export class UserController {}
+```
+
+</div>
+</div>
+
+**But we're looking for a better way that's type safe**
+
+<div class="columns">
+<div>
+
+generator function
+
+```typescript
+function generateController(model) {
+  return {
+    kind: StructureKind.Class,
+    name: `${model.name}Controller`
+    isExported: true
+  }
+}
+```
+
+</div>
+
+<div>
+
+result
+
+```typescript
+export class UserController {}
+```
+
+</div>
+
 </div>
 
 ---
@@ -80,25 +130,7 @@ From the `ts-morph` documentation:
 
 > Setup, navigation, and manipulation of the TypeScript AST can be a challenge. This library wraps the TypeScript compiler API so it's simple.
 
-_example:_
-
-```typescript
-import { Project } from 'ts-morph';
-
-const project = new Project({
-  tsConfigFilePath: 'path/to/tsconfig.json',
-});
-
-const sourceFile = project.addSourceFileAtPath('path/to/file.ts');
-
-sourceFile.addClass({
-  // Object describing a class AST node
-});
-```
-
----
-
-## Abstract syntax tree ?
+## AST: Abstract syntax tree ?
 
 From [wikipedia](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
 
@@ -108,82 +140,24 @@ Let's see the typescript AST: [AST viewer](https://ts-ast-viewer.com/#code/C4TwD
 
 ---
 
-## AST in the Typescript compiler:
+## What is the AST used for ?
 
-![width:600px](https://raw.githubusercontent.com/huytd/everyday/master/_meta/tsc-overview.png)
+Convert code as string into AST is called **parsing**. Parsers are involved in many tools that transform some source code:
 
----
-
-# Generate code with ts-morph
-
-## Load the project with ts morph
-
-```typescript
-import { Project } from 'ts-morhp';
-
-// Instantiate the ts project
-const project = new Project({
-  tsConfigFilePath: absoluteTsConfigFilePath,
-  // skipAddingFilesFromTsConfig: true
-});
-```
+- compilers
+- bundlers
+- linters
+- formatters
+- **The browser parses html string into a DOM tree.**
 
 ---
 
-_libs/generator/src/lib/generate.ts_
+# Write the generator
 
-```typescript
-import { DMMF } from '@prisma/generator-helper';
-import { Project } from 'ts-morhp';
-
-export function generate(dmmf: DMMF) {
-  // Instantiate the ts project
-  const project = new Project({
-    tsConfigFilePath: absoluteTsConfigFilePath,
-  });
-
-  // Clear generation directory
-  project.getDirectory(absoluteGeneratedDirectory)?.clear();
-
-  // Generate controllers and dtos
-  dmmf.datamodel.models.forEach((model) => {
-    const entityPath = `${absoluteGeneratedDirectory}/${kebab(model.name)}`;
-    generateControllerSourceFile(project, model, entityPath);
-    generateCreateDtoSourceFile(project, model, entityPath);
-  });
-
-  // Remove unused imports
-  project
-    .getSourceFiles()
-    .map((sourceFile) => sourceFile.fixUnusedIdentifiers());
-
-  // Save project to file system
-  project.saveSync();
-}
-```
-
----
-
-## Generate code depending on the data models
-
-<div class=columns3>
-<div>
-prisma schema
-
-```typescript
-model User {
-  id      Int      @id
-  email   String   @unique
-  name    String?
-  role    Role     @relation(...)
-  roleId  Int
-}
-```
-
-</div>
+<div class=columns>
 
 <div>
-The prisma model object
+The model object (generator input)
 
 ```typescript
 interface Model {
@@ -201,7 +175,7 @@ interface Model {
 </div>
 
 <div>
-Output controller
+Generated code (generator output)
 
 ```typescript
 
@@ -232,9 +206,37 @@ export class UserController {
 
 ---
 
-## Manipulate AST structures
+## The `generate` function
 
-_generate the controller file_
+```typescript
+export function generate(dmmf: DMMF) {
+  // Instantiate the ts project
+  const project = new Project({
+    tsConfigFilePath: tsConfigPath,
+  });
+
+  // Clear generation directory
+  project.getDirectory(generatedDirectoryPath)?.clear();
+
+  // Generate controllers and dtos
+  dmmf.datamodel.models.forEach((model) => {
+    generateControllerSourceFile(project, model, entityPath);
+    generateCreateDtoSourceFile(project, model, entityPath);
+  });
+
+  // Remove unused imports
+  project
+    .getSourceFiles()
+    .map((sourceFile) => sourceFile.fixUnusedIdentifiers());
+
+  // Save project to file system
+  project.saveSync();
+}
+```
+
+---
+
+## The `generateControllerSourceFile` function
 
 ```typescript
 export function generateControllerSourceFile(
@@ -257,25 +259,23 @@ export function generateControllerSourceFile(
 
 ---
 
-_generate the controller class_
+## The `generateControllerClass` function
 
 ```typescript
 export function generateControllerClass(
   model: DMMF.Model
 ): ClassDeclarationStructure {
   const className = `${pascal(model.name)}Controller`;
+
   const properties = [
     generateStateProperty(model),
-    ...(containsUniqueFields(model)
-      ? [generateUniqueFieldsProperty(model)]
-      : []),
+    generateUniqueFieldsProperty(model),
   ];
+
   const methods = [
     generateCreateMethod(model),
     generateFindManyMethod(),
-    ...(containsUniqueFields(model)
-      ? [generateCheckUniquenessConstraintMethod(model)]
-      : []),
+    generateCheckUniquenessConstraintMethod(model),
   ];
 
   return {
@@ -293,39 +293,7 @@ export function generateControllerClass(
 
 ---
 
-_Generate a method with string manipulation_
-
-```typescript
-export function generateCheckUniquenessConstraintMethod(
-  model: DMMF.Model
-): MethodDeclarationStructure {
-  const dataParameter: ParameterDeclarationStructure = {
-    kind: StructureKind.Parameter,
-    name: 'data',
-    type: `${pascal(model.name)}Dto`,
-  };
-
-  // Statements with a template literal
-  const statements = `
-  this.uniqueFields.forEach(uniqueField => {
-    const conflict = this.state.some(existingData => existingData[uniqueField] === data[uniqueField]);
-    if (conflict) throw new ConflictException();
-  })
-  `;
-
-  return {
-    kind: StructureKind.Method,
-    name: 'checkUniquenessConstraint',
-    scope: Scope.Private,
-    statements,
-    parameters: [dataParameter],
-  };
-}
-```
-
----
-
-# Test the generators
+# Test the generator
 
 _For pure functions that return structure depending on the model_
 
@@ -391,7 +359,7 @@ describe('generateSourceFile', () => {
 
 ---
 
-# Code refactoring
+# Another use case: code refactoring
 
 A quick example from [this article](https://blog.kaleidos.net/Refactoring-Typescript-code-with-ts-morph/): split files containing many classes
 
@@ -402,18 +370,7 @@ project.getSourceFiles().forEach((sourceFile) => {
 
   // If there is more than one we begin the changes
   if (classes.length > 1) {
-    // We get the file directory because we are going to use it to create the new files
-    const directory = sourceFile.getDirectory();
-    const classesToMove = classes.slice(1);
-
-    // We go class by class creating a file with the name and its content. When finished we delete the class from the original file
-    classesToMove.forEach((c) => {
-      directory.createSourceFile(`${c.getName()}.ts`, c.getText());
-      itClass.remove();
-    });
-
-    // We apply the changes to the folder
-    directory.save();
+    // Split your classes in separated files
   }
 
   // We save the changes in the original file so that the removed classes disappear
@@ -423,7 +380,7 @@ project.getSourceFiles().forEach((sourceFile) => {
 
 ---
 
-# In conclusion (pros and cons)
+# In conclusion
 
 **When comparing `ts-morph` VS manipulate the code as a string:**
 
@@ -431,7 +388,7 @@ project.getSourceFiles().forEach((sourceFile) => {
 - it's safer
 - it allows more complex manipulations
 - it's more verbose (can be overkill for simple things)
-- Some performance issues on Github. That could be a con
+- it can only generate typescript
 
 **When comparing `ts-morph` VS `typescript` compiler api:**
 
@@ -441,15 +398,9 @@ project.getSourceFiles().forEach((sourceFile) => {
 
 ---
 
-# Other points to dig
-
-- Performances when generating a lot of files.
-- Performances when instantiating projects in unit-tests.
-- Compare `ts-morph` VS using `typescript` directly.
-
----
-
 # Resources
+
+[Repository containing the POC/demo and presentation](https://github.com/tractr/tsmorph-demo)
 
 **ts-morhp**
 
@@ -465,6 +416,4 @@ project.getSourceFiles().forEach((sourceFile) => {
 **other tools in the repo**
 
 - [Nx](https://nx.dev/).
-- [Nestjs](https://nestjs.com/).
-- [Nestjs swagger plugin](https://docs.nestjs.com/openapi/introduction).
 - [Marp](https://marp.app/) to write slides decks with markdown.
